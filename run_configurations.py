@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 import os
 import stat
 import sys
@@ -60,7 +61,7 @@ class RunConfigType(click.ParamType):
             base_dir = _get_param(ctx, "base_dir")
         except click.UsageError:
             _, exc_value, _ = sys.exc_info()
-            click.echo(f"\n{exc_value}\n", file=sys.stderr)
+            logging.warning(exc_value)
             return []
         # return [click.shell_completion.CompletionItem(" ", help=exc_value)]
         return [
@@ -87,6 +88,8 @@ def _get_param(ctx: click.Context, param: str) -> click.Parameter:
 def list_rc(ctx, _, value) -> None:
     if not value or ctx.resilient_parsing:
         return
+    logging.debug("Listing run configs.")
+    logging.debug(f"Parameter: {ctx.params}")
     base_dir = _get_param(ctx, "base_dir")
     commands = []
     help_texts = []
@@ -94,7 +97,7 @@ def list_rc(ctx, _, value) -> None:
         commands.append(str(rc.relative_to(get_rc_dir(base_dir))))
         help_texts.append(get_help_text(rc))
     if not commands:
-        click.echo("No run configs found.")
+        logging.warning("No run configs found.")
         ctx.exit(0)
     longest_command = max(len(c) for c in commands)
     for command, help_text in zip(commands, help_texts):
@@ -105,6 +108,8 @@ def list_rc(ctx, _, value) -> None:
 def print_zsh_completion(ctx, _, value) -> None:
     if not value or ctx.resilient_parsing:
         return
+    logging.debug("Printing zsh completion.")
+    logging.debug(f"Parameter: {ctx.params}")
     print('eval "$(_RC_COMPLETE=zsh_source rc)"')
     ctx.exit(0)
 
@@ -112,6 +117,8 @@ def print_zsh_completion(ctx, _, value) -> None:
 def print_base_dir(ctx, _, value) -> None:
     if not value or ctx.resilient_parsing:
         return
+    logging.debug("Printing base dir.")
+    logging.debug(f"Parameter: {ctx.params}")
     base_dir = _get_param(ctx, "base_dir")
     print(Path(base_dir).absolute())
     ctx.exit(0)
@@ -120,9 +127,19 @@ def print_base_dir(ctx, _, value) -> None:
 def print_rc_dir(ctx, _, value) -> None:
     if not value or ctx.resilient_parsing:
         return
+    logging.debug("Printing run config dir.")
+    logging.debug(f"Parameter: {ctx.params}")
     base_dir = _get_param(ctx, "base_dir")
     print(get_rc_dir(base_dir).absolute())
     ctx.exit(0)
+
+
+def set_log_level(ctx, _, value) -> None:
+    if not value or ctx.resilient_parsing:
+        return
+    logging.basicConfig(level=value, format="%(asctime)s │ %(levelname)-8s │ %(message)s")
+    logging.debug(f"Setting log level to {value}.")
+    return
 
 
 @click.command()
@@ -184,8 +201,19 @@ def print_rc_dir(ctx, _, value) -> None:
     help="Print zsh completion script.",
     callback=print_zsh_completion,
 )
+@click.option(
+    "--log-level",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]),
+    default="INFO",
+    help="Log level.",
+    is_eager=True,
+    expose_value=False,
+    callback=set_log_level,
+)
 @click.version_option()
+@click.pass_context
 def cli(
+    ctx: click.Context,
     run_config: str,
     args: tuple[str],
     base_dir: Path,
@@ -196,39 +224,52 @@ def cli(
 
     A run config can be any executable file in the .run_configs directory.
     """
+    logging.debug(f"Parameter: {ctx.params}")
     rc_dir = get_rc_dir(base_dir)
+    logging.debug(f"Base dir: {base_dir}")
     rc = rc_dir / run_config
+    logging.debug(f"Run config: {rc}")
     if edit:
         editor = os.getenv("EDITOR", "vim")
-        click.echo(f"Editing {rc} with {editor}")
+        logging.debug(f"Editor: {editor}")
+        logging.info(f"Editing {rc} with {editor}")
         if not rc.exists() and click.confirm(
             "Run config does not exist. Create?", default=True
         ):
+            logging.debug(f"Creating {rc}")
             rc.touch()
+            logging.debug(f"Making {rc} executable")
             os.chmod(
                 str(rc.absolute()), os.stat(str(rc.absolute())).st_mode | stat.S_IEXEC
             )
         if not os.access(str(rc.absolute()), os.X_OK) and click.confirm(
             "Make executable?", default=True
         ):
+            logging.debug(f"Making {rc} executable")
             os.chmod(
                 str(rc.absolute()), os.stat(str(rc.absolute())).st_mode | stat.S_IEXEC
             )
+        logging.debug(f"Opening {rc} with {editor}")
         os.execvp(editor, [editor, str(rc.absolute())])
     if not rc.exists():
+        logging.error(f"Run config {run_config} does not exist in {rc_dir}.")
         raise click.UsageError(f"Run config {run_config} does not exist in {rc_dir}.")
     if not os.access(str(rc.absolute()), os.X_OK):
         if make_executable or click.confirm(
             "Run config not executable. Change permissions?", abort=True
         ):
+            logging.debug(f"Making {rc} executable")
             os.chmod(
                 str(rc.absolute()), os.stat(str(rc.absolute())).st_mode | stat.S_IEXEC
             )
+    logging.debug(f"Changing directory to {base_dir}")
     os.chdir(base_dir)
     args_list = list(args) if len(args) > 0 else []
+    logging.debug(f"Executing {rc} with args {args_list}")
     try:
         os.execv(str(rc.absolute()), [str(rc)] + args_list)
     except OSError as e:
+        logging.error(f"Error executing {rc}: {e}")
         raise click.FileError(rc, f"{e}")
 
 
