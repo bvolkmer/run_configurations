@@ -84,7 +84,7 @@ def _get_param(ctx: click.Context, param: str) -> click.Parameter:
     raise Exception(f"Could not find parameter {param}.")
 
 
-def list(ctx, _, value) -> None:
+def list_rc(ctx, _, value) -> None:
     if not value or ctx.resilient_parsing:
         return
     base_dir = _get_param(ctx, "base_dir")
@@ -109,11 +109,44 @@ def print_zsh_completion(ctx, _, value) -> None:
     ctx.exit(0)
 
 
+def print_base_dir(ctx, _, value) -> None:
+    if not value or ctx.resilient_parsing:
+        return
+    base_dir = _get_param(ctx, "base_dir")
+    print(Path(base_dir).absolute())
+    ctx.exit(0)
+
+
+def print_rc_dir(ctx, _, value) -> None:
+    if not value or ctx.resilient_parsing:
+        return
+    base_dir = _get_param(ctx, "base_dir")
+    print(get_rc_dir(base_dir).absolute())
+    ctx.exit(0)
+
+
 @click.command()
 @click.argument("run_config", type=RunConfigType())
 @click.argument("args", nargs=-1)
 @click.option(
+    "--edit",
+    "-e",
+    is_flag=True,
+    help="Edit run config instead of running.",
+)
+@click.option(
+    "--list",
+    "-l",
+    "list_configs",
+    is_flag=True,
+    help="List available run configs.",
+    callback=list_rc,
+    expose_value=False,
+    is_eager=True,
+)
+@click.option(
     "--make-executable",
+    "-x",
     is_flag=True,
     help="Make run config executable if it isn't already.",
 )
@@ -128,25 +161,36 @@ def print_zsh_completion(ctx, _, value) -> None:
     ),
 )
 @click.option(
-    "--list",
-    "list_configs",
+    "--get-base-dir",
     is_flag=True,
-    help="List available run configs.",
-    callback=list,
-    expose_value=False,
     is_eager=True,
+    expose_value=False,
+    help="Print base directory.",
+    callback=print_base_dir,
+)
+@click.option(
+    "--get-rc-dir",
+    is_flag=True,
+    is_eager=True,
+    expose_value=False,
+    help="Print run configuration directory.",
+    callback=print_rc_dir,
 )
 @click.option(
     "--zsh-completion",
     is_flag=True,
     is_eager=True,
-    expose_value=True,
+    expose_value=False,
     help="Print zsh completion script.",
     callback=print_zsh_completion,
 )
 @click.version_option()
 def cli(
-    run_config: str, args: tuple[str], base_dir: Path, make_executable: bool = False
+    run_config: str,
+    args: tuple[str],
+    base_dir: Path,
+    make_executable: bool = False,
+    edit: bool = False,
 ) -> None:
     """Run a run config
 
@@ -154,6 +198,23 @@ def cli(
     """
     rc_dir = get_rc_dir(base_dir)
     rc = rc_dir / run_config
+    if edit:
+        editor = os.getenv("EDITOR", "vim")
+        click.echo(f"Editing {rc} with {editor}")
+        if not rc.exists() and click.confirm(
+            "Run config does not exist. Create?", default=True
+        ):
+            rc.touch()
+            os.chmod(
+                str(rc.absolute()), os.stat(str(rc.absolute())).st_mode | stat.S_IEXEC
+            )
+        if not os.access(str(rc.absolute()), os.X_OK) and click.confirm(
+            "Make executable?", default=True
+        ):
+            os.chmod(
+                str(rc.absolute()), os.stat(str(rc.absolute())).st_mode | stat.S_IEXEC
+            )
+        os.execvp(editor, [editor, str(rc.absolute())])
     if not rc.exists():
         raise click.UsageError(f"Run config {run_config} does not exist in {rc_dir}.")
     if not os.access(str(rc.absolute()), os.X_OK):
