@@ -14,6 +14,12 @@ Usage: rc [OPTIONS] RUN_CONFIG [ARGS]...
   A run config can be any executable file in the .run_configs directory.
 
 Options:
+  -f, --fork                      Fork process and return immediately. If -s
+                                  is also supplied the screen session will
+                                  start detached.
+  -n, --null-pipe                 Use a null pipe instead of a PTY. Is ignored
+                                  if -s is supplied
+  -s, --screen                    Run in a screen session.
   -e, --edit                      Edit run config instead of running.
   -l, --list                      List available run configs.
   -x, --make-executable           Make run config executable if it isn't
