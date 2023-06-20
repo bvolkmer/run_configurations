@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 from shutil import which
+from typing import List, Tuple
 
 import click
 
@@ -46,7 +47,7 @@ def get_rc_dir(base_dir: Path) -> Path:
     return base_dir / RUN_CONFIGS_DIR
 
 
-def get_run_configs(base_dir: Path, incomplete: str = "") -> list[Path]:
+def get_run_configs(base_dir: Path, incomplete: str = "") -> List[Path]:
     return [
         rc
         for rc in filter(
@@ -236,7 +237,7 @@ def set_log_level(ctx, _, value) -> None:
 def cli(
     ctx: click.Context,
     run_config: str,
-    args: tuple[str],
+    args: Tuple[str],
     base_dir: Path,
     make_executable: bool = False,
     edit: bool = False,

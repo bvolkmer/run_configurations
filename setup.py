@@ -17,6 +17,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/bvolkmer/run_configurations",
     py_modules=["run_configurations"],
+    python_requires=">=3.8",
     install_requires=[
         "click",
     ],
