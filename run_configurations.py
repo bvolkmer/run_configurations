@@ -2,13 +2,12 @@
 
 import logging
 import os
-import subprocess
 import stat
+import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 from shutil import which
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import click
 
@@ -299,9 +298,11 @@ def cli(
     prog_args.insert(0, prog)
     if screen:
         prog_args.insert(0, "screen")
+        prog_args.insert(1, "-S")
+        prog_args.insert(2, f"rc {rc.name}")
         if fork:
-            prog_args.insert(1, "-d")
-            prog_args.insert(2, "-m")
+            prog_args.insert(3, "-d")
+            prog_args.insert(4, "-m")
     logging.debug(f"Executing {prog_args}")
 
     process_args: dict[str, Any] = dict(cwd=base_dir, env=os.environ)
