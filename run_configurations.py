@@ -5,6 +5,7 @@ import os
 import stat
 import subprocess
 import sys
+from glob import glob
 from pathlib import Path
 from shutil import which
 from typing import Any, List, Tuple
@@ -50,7 +51,10 @@ def get_run_configs(base_dir: Path, incomplete: str = "") -> List[Path]:
     return [
         rc
         for rc in filter(
-            lambda p: p.name.startswith(incomplete), get_rc_dir(base_dir).glob("**/*")
+            lambda p: p.name.startswith(incomplete),
+            map(Path, glob(f"{get_rc_dir(base_dir).absolute()}/**/*", recursive=True))
+            # pathlibs glob doesn't support following symlinks prior to python 3.13.
+            # See https://github.com/python/cpython/issues/77609#issuecomment-1567306837
         )
         if rc.is_file() and os.access(str(rc.absolute()), os.X_OK)
     ]
