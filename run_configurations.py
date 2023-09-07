@@ -11,8 +11,10 @@ from shutil import which
 from typing import Any, List, Tuple
 
 import click
+from Levenshtein import distance as levenshtein_distance
 
 RUN_CONFIGS_DIR: str = ".run_configs"
+LEVENSHTEIN_MAX_DISTANCE: int = 1000
 
 
 PathNotFoundError = Exception
@@ -48,16 +50,37 @@ def get_rc_dir(base_dir: Path) -> Path:
 
 
 def get_run_configs(base_dir: Path, incomplete: str = "") -> List[Path]:
-    return [
-        rc
-        for rc in filter(
-            lambda p: p.name.startswith(incomplete),
-            map(Path, glob(f"{get_rc_dir(base_dir).absolute()}/**/*", recursive=True))
-            # pathlibs glob doesn't support following symlinks prior to python 3.13.
-            # See https://github.com/python/cpython/issues/77609#issuecomment-1567306837
+    run_configs = filter(
+        lambda p: p.is_file() and os.access(str(p.absolute()), os.X_OK),
+        map(Path, glob(f"{get_rc_dir(base_dir).absolute()}/**/*", recursive=True)),
+        # pathlibs glob doesn't support following symlinks prior to python 3.13.
+        # See https://github.com/python/cpython/issues/77609#issuecomment-1567306837
+    )
+    if incomplete != "":
+        pairs = map(
+            lambda p: (
+                p,
+                levenshtein_distance(
+                    incomplete,
+                    str(p.relative_to(base_dir)),
+                    weights=(
+                    1,
+                    LEVENSHTEIN_MAX_DISTANCE,
+                    LEVENSHTEIN_MAX_DISTANCE,
+                    ),  # only allow insertions
+                    score_cutoff=LEVENSHTEIN_MAX_DISTANCE,
+                ),
+            ),
+            run_configs,
         )
-        if rc.is_file() and os.access(str(rc.absolute()), os.X_OK)
-    ]
+        run_configs = map(
+            lambda pd: pd[0],
+            sorted(
+                filter(lambda pd: pd[1] < LEVENSHTEIN_MAX_DISTANCE, pairs),
+                key=lambda pd: pd[1],
+            ),
+        )
+    return list(run_configs)
 
 
 class RunConfigType(click.ParamType):

@@ -20,6 +20,7 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "click",
+        "levenshtein",
     ],
     entry_points={
         "console_scripts": [
