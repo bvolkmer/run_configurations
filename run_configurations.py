@@ -64,9 +64,9 @@ def get_run_configs(base_dir: Path, incomplete: str = "") -> List[Path]:
                     incomplete,
                     str(p.relative_to(base_dir)),
                     weights=(
-                    1,
-                    LEVENSHTEIN_MAX_DISTANCE,
-                    LEVENSHTEIN_MAX_DISTANCE,
+                        1,
+                        LEVENSHTEIN_MAX_DISTANCE,
+                        LEVENSHTEIN_MAX_DISTANCE,
                     ),  # only allow insertions
                     score_cutoff=LEVENSHTEIN_MAX_DISTANCE,
                 ),
@@ -167,12 +167,14 @@ def print_rc_dir(ctx, _, value) -> None:
 def set_log_level(ctx, _, value) -> None:
     if not value or ctx.resilient_parsing:
         return
-    logging.basicConfig(level=value, format="%(asctime)s │ %(levelname)-8s │ %(message)s")
+    logging.basicConfig(
+        level=value, format="%(asctime)s │ %(levelname)-8s │ %(message)s"
+    )
     logging.debug(f"Setting log level to {value}.")
     return
 
 
-@click.command()
+@click.command(context_settings={"allow_interspersed_args": False})
 @click.argument("run_config", type=RunConfigType())
 @click.argument("args", nargs=-1)
 @click.option(

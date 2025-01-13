@@ -1,7 +1,7 @@
 from setuptools import setup
 from pathlib import Path
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 setup(
     name="run_configurations",
